@@ -2,6 +2,8 @@ package com.bura.game
 
 import com.bura.model.{Attack, Deck, Defense, Player, Suit, WonTrick}
 
+import scala.annotation.tailrec
+
 
 case class GameState(
   deck: Deck,
@@ -17,13 +19,8 @@ case class GameState(
   def defendingPlayer: Player = players(defender)
 
   //Update players
-  private def updatePlayer(index: Int, player: Player): GameState =
-    copy(
-      players = players.updated(index, player)
-    )
-
+  private def updatePlayer(index: Int, player: Player): GameState = copy(players = players.updated(index, player))
   private def updateAttacker(player: Player): GameState = updatePlayer(attacker, player)
-
   private def updateDefender(player: Player): GameState = updatePlayer(defender, player)
 
   def modifyPlayer(index: Int)(f: Player => Player): GameState = updatePlayer(index,f(players(index)))
@@ -31,8 +28,7 @@ case class GameState(
   def modifyDefender(f: Player => Player): GameState           = updateDefender(f(defendingPlayer))
 
   //Round
-  def withAttack(attack: Attack): GameState =
-    copy(round = Round.WaitingDefense(attack))
+  def withAttack(attack: Attack): GameState = copy(round = Round.WaitingDefense(attack))
 
   def defenderWon(attack: Attack, defense: Defense): GameState = {
     val trick: WonTrick.Open = WonTrick.Open(attack.cards ++ defense.cards)
@@ -48,7 +44,7 @@ case class GameState(
 
   def attackerWonHidden(attack: Attack, defense: Defense): GameState = {
     val openTrick: WonTrick.Open = WonTrick.Open(attack.cards)
-    val hiddenTrick: WonTrick.Hidden = WonTrick.Hidden(defense)
+    val hiddenTrick: WonTrick.Hidden = WonTrick.Hidden(defense.cards)
 
     copy(round = Round.AttackerWonHidden(openTrick, hiddenTrick))
   }
@@ -61,11 +57,34 @@ case class GameState(
   }
   //Draw cards
   def refillHands: GameState = {
-    val (updatedAttacker, deckAfterAttacker) = deck.drawTo(attackingPlayer)
-    val stateAfterAttacker = copy(deck = deckAfterAttacker).updateAttacker(updatedAttacker)
-    val (updatedDefender, deckAfterDefender) = stateAfterAttacker.deck.drawTo(stateAfterAttacker.defendingPlayer)
 
-    stateAfterAttacker.copy(deck = deckAfterDefender).updateDefender(updatedDefender)
+    def drawOneFor(state: GameState, index: Int): GameState = {
+      if (state.players(index).needCards == 0) state
+      else {state.deck.drawOne match {
+          case Some((card, newDeck)) =>
+            state
+              .copy(deck = newDeck)
+              .modifyPlayer(index)(_.addCards(List(card)))
+
+          case None => state
+        }
+      }
+    }
+
+    @tailrec
+    def loop(state: GameState): GameState = {
+
+      if (state.deck.isEmpty || state.players.forall(_.needCards == 0)) state
+      else {
+        val afterAttacker = drawOneFor(state, state.attacker)
+
+        val afterDefender = drawOneFor(afterAttacker, state.defender)
+
+        loop(afterDefender)
+      }
+    }
+
+    loop(this)
   }
 
 }

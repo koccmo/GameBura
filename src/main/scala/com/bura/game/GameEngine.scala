@@ -3,8 +3,10 @@ package com.bura.game
 import com.bura.ai.BotAi
 import com.bura.ui.{ConsoleUI, DefenseAction}
 import com.bura.model.{Attack, Player}
+import com.bura.rules.BuraRules
 import com.bura.service.GameService
-import com.bura.ui.{ConsoleUI, DeclareAction, DefenseAction}
+import com.bura.ui.DeclareAction
+
 import scala.annotation.tailrec
 
 object GameEngine {
@@ -130,7 +132,6 @@ object GameEngine {
           println(error)
           loop()
         case Right(DefenseAction.Defend) => ConsoleUI.chooseDefense(
-          state = state,
           hand = human.hand,
           amount = attack.cards.size
         ) match {
@@ -146,7 +147,6 @@ object GameEngine {
           }
         }
         case Right(DefenseAction.Surrender) => ConsoleUI.chooseSurrender(
-          state = state,
           hand = human.hand,
           amount = attack.cards.size
         ) match {
@@ -209,7 +209,7 @@ object GameEngine {
           val robotPoints = state.players.collectFirst {
               case robot: Player.Robot => robot.totalPoints }.getOrElse(0)
 
-          if (humanPoints >= 31) {
+          if (humanPoints >= BuraRules.WinningPoints) {
 
             Right(
               Some(
@@ -232,14 +232,14 @@ object GameEngine {
   private def robotDeclaration(state: GameState, robot: Player.Robot): Option[GameResult] = {
 
     if (!BotAi.shouldDeclare31(robot)) { None }
-    else { println( s"${robot.name} declares 31!")
+    else { println( s"${robot.name} declares ${BuraRules.WinningPoints}!")
 
       val robotPoints = robot.totalPoints
 
       val humanPoints = state.players.collectFirst {
           case human: Player.Human => human.totalPoints }.getOrElse(0)
 
-      if (robotPoints >= 31) { Some(
+      if (robotPoints >= BuraRules.WinningPoints) { Some(
         GameResult.RobotWon(humanPoints = humanPoints, robotPoints = robotPoints))}
       else { Some(
           GameResult.HumanWon(humanPoints = humanPoints, robotPoints = robotPoints)

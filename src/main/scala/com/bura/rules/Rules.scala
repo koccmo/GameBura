@@ -9,7 +9,7 @@ object Rules {
     if (defense.suit == attack.suit)
       defense.rank.strength > attack.rank.strength
     else
-      defense.suit == trump// Todo need check and write correct code!
+      defense.suit == trump
 
   def beatsAttack(a: Attack, d: Defense, trump: Suit): Boolean =
     if (a.cards.size != d.cards.size) false
@@ -18,5 +18,5 @@ object Rules {
         a.cards.zip(defenseCards).forall {
           case (ac, dc) => beatsOne(ac, dc, trump)
         }
-      }// Todo need check and write correct code! And Change names of defs
+      }
 }

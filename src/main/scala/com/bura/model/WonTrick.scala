@@ -13,12 +13,12 @@ object WonTrick {
     override def count: Int = cards.size
   }
 
-  case class Hidden(defense: Defense) extends WonTrick {
+  case class Hidden(cards: List[Card]) extends WonTrick {
 
-    override val count: Int = defense.cards.size
+    override def count: Int = cards.size
 
-    def reveal: List[Card] = defense.cards
+    def reveal: List[Card] = cards
 
-    def revealPoints: Int = defense.cards.map(_.points).sum
+    def revealPoints: Int = cards.map(_.points).sum
   }
 }
