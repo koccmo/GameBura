@@ -4,7 +4,7 @@ import com.bura.ai.BotAi
 import com.bura.ui.{ConsoleUI, DefenseAction}
 import com.bura.model.{Attack, Player}
 import com.bura.rules.BuraRules
-import com.bura.service.GameService
+import com.bura.service.{DeclarationService, GameService}
 import com.bura.ui.DeclareAction
 
 import scala.annotation.tailrec
@@ -185,6 +185,7 @@ object GameEngine {
     }
 
   //DECLARATION
+
   private def checkDeclaration(
                                 state: GameState
                               ): Either[String, Option[GameResult]] =
@@ -209,20 +210,7 @@ object GameEngine {
           val robotPoints = state.players.collectFirst {
               case robot: Player.Robot => robot.totalPoints }.getOrElse(0)
 
-          if (humanPoints >= BuraRules.WinningPoints) {
-
-            Right(
-              Some(
-                GameResult.HumanWon(humanPoints = humanPoints, robotPoints = robotPoints)
-              )
-            )
-          } else {
-            Right(
-              Some(
-                GameResult.RobotWon(humanPoints = humanPoints, robotPoints = robotPoints)
-              )
-            )
-          }
+          Right(Some(DeclarationService.humanDeclarationResult(humanPoints = humanPoints, robotPoints = robotPoints)))
       }
     }
 
@@ -239,12 +227,7 @@ object GameEngine {
       val humanPoints = state.players.collectFirst {
           case human: Player.Human => human.totalPoints }.getOrElse(0)
 
-      if (robotPoints >= BuraRules.WinningPoints) { Some(
-        GameResult.RobotWon(humanPoints = humanPoints, robotPoints = robotPoints))}
-      else { Some(
-          GameResult.HumanWon(humanPoints = humanPoints, robotPoints = robotPoints)
-        )
-      }
+      Some(DeclarationService.robotDeclarationResult(humanPoints = humanPoints, robotPoints = robotPoints))
     }
   }
 }

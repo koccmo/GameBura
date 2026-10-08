@@ -182,6 +182,6 @@ class GameEngineSpec extends AnyFunSuite {
     assert(result == Left("Robot player not found"))
   }
 
-  
+
 
 }
