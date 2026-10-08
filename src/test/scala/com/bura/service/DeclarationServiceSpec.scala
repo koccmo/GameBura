@@ -33,6 +33,6 @@ class DeclarationServiceSpec extends AnyFunSuite {
     assert(result == GameResult.HumanWon(humanPoints = 20, robotPoints = 30))
   }
 
-  
+
 
 }

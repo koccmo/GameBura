@@ -2,7 +2,7 @@ package com.bura.game
 
 import com.bura.ai.BotAi
 import com.bura.ui.{ConsoleUI, DefenseAction}
-import com.bura.model.{Attack, Player}
+import com.bura.model.{Attack, Defense, Player}
 import com.bura.rules.BuraRules
 import com.bura.service.{DeclarationService, GameService}
 import com.bura.ui.DeclareAction
@@ -21,22 +21,34 @@ object GameEngine {
         }
       } else {
         playTurn(state) match {
-          case Right(newState) => state.round match {
+          case Right(newState) =>
+            state.round match {
 
-            case Round.WaitingDefense(_) => checkDeclaration(newState) match {
-              case Left(error) => Left(error)
-              case Right(Some(result)) => Right(FinishedGame(state = newState, result = result))
-              case Right(None) => loop(newState)
+              case Round.WaitingDefense(_) =>
+                checkDeclaration(newState) match {
+                  case Left(error)         => Left(error)
+                  case Right(Some(result)) => Right(FinishedGame(state = newState, result = result))
+                  case Right(None)         => loop(newState)
                 }
 
-            case _ => loop(newState)
+              case _ => loop(newState)
             }
-          case Left(error) => Left(error)
+          case Left(error)     => Left(error)
         }
       }
 
     loop(initialState)
   }
+
+  //PLAYER ACTION
+  private def applyPlayerAction(state: GameState, action: PlayerAction): Either[String, GameState] =
+    action match {
+      case PlayerAction.AttackCards(attack)     => GameService.attack(state, attack)
+      case PlayerAction.DefendCards(defense)    => GameService.defend(state, defense)
+      case PlayerAction.SurrenderCards(defense) => GameService.surrender(state, defense)
+      case PlayerAction.Declare31               => Left("Declare31 does not change GameState directly")
+      case PlayerAction.Continue                => Right(state)
+    }
 
   // TURN
   private def playTurn(state: GameState): Either[String, GameState] =
@@ -60,7 +72,7 @@ object GameEngine {
       case robot: Player.Robot => playRobotDefense(state, robot, attack)
     }
 
-    result.map{ newState =>
+    result.map { newState =>
       ConsoleUI.showRoundResult(newState)
       newState
     }
@@ -106,7 +118,7 @@ object GameEngine {
           println(error)
           loop()
         case Right(attack) =>
-          GameService.attack(state, attack) match {
+          applyPlayerAction(state, PlayerAction.AttackCards(attack)) match {
             case Right(newState) => Right(newState)
             case Left(error)     =>
               println(error)
@@ -118,6 +130,7 @@ object GameEngine {
 
   }
 
+
   // HUMAN DEFENSE
   private def playHumanDefense(
     state: GameState,
@@ -126,45 +139,41 @@ object GameEngine {
   ): Either[String, GameState] = {
 
     @tailrec
-    def loop(): Either[String, GameState] = {
+    def loop(): Either[String, GameState] =
       ConsoleUI.chooseDefenseAction(state, attack, human.hand) match {
-        case Left(error) =>
+        case Left(error)                    =>
           println(error)
           loop()
-        case Right(DefenseAction.Defend) => ConsoleUI.chooseDefense(
-          hand = human.hand,
-          amount = attack.cards.size
-        ) match {
-          case Left(error) =>
-            println(error)
-            loop()
-          case Right(defense) => GameService.defend(state, defense) match {
-            case Left(error) =>
+        case Right(DefenseAction.Defend)    =>
+          ConsoleUI.chooseDefense(hand = human.hand, amount = attack.cards.size) match {
+            case Left(error)    =>
               println(error)
               loop()
-            case Right(newState) =>
-              Right(newState)
+            case Right(defense) =>
+              applyPlayerAction(state, PlayerAction.DefendCards(defense)) match {
+                case Left(error)     =>
+                  println(error)
+                  loop()
+                case Right(newState) => Right(newState)
+              }
           }
-        }
-        case Right(DefenseAction.Surrender) => ConsoleUI.chooseSurrender(
-          hand = human.hand,
-          amount = attack.cards.size
-        ) match {
-          case Left(error) =>
-            println(error)
-            loop()
-          case Right(defense) => GameService.surrender(state, defense) match {
-            case Left(error) =>
+        case Right(DefenseAction.Surrender) =>
+          ConsoleUI.chooseSurrender(hand = human.hand, amount = attack.cards.size) match {
+            case Left(error)    =>
               println(error)
               loop()
-            case Right(newState) =>
-              Right(newState)
+            case Right(defense) =>
+              applyPlayerAction(state, PlayerAction.SurrenderCards(defense)) match {
+                case Left(error)     =>
+                  println(error)
+                  loop()
+                case Right(newState) => Right(newState)
+              }
           }
-        }
       }
-    }
     loop()
   }
+  
 
   // GAME OVER
   private def isGameOver(state: GameState): Boolean =
@@ -187,8 +196,8 @@ object GameEngine {
   //DECLARATION
 
   private def checkDeclaration(
-                                state: GameState
-                              ): Either[String, Option[GameResult]] =
+    state: GameState
+  ): Either[String, Option[GameResult]] =
     state.attackingPlayer match {
 
       case human: Player.Human => humanDeclaration(state = state, human = human)
@@ -198,36 +207,40 @@ object GameEngine {
   private def humanDeclaration(state: GameState, human: Player.Human): Either[String, Option[GameResult]] = {
 
     @annotation.tailrec
-    def loop(): Either[String, Option[GameResult]] = { ConsoleUI.chooseDeclareAction(human) match {
+    def loop(): Either[String, Option[GameResult]] = ConsoleUI.chooseDeclareAction(human) match {
 
-        case Left(error) =>
-          println(error)
-          loop()
+      case Left(error) =>
+        println(error)
+        loop()
 
-        case Right(DeclareAction.Continue) => Right(None)
-        case Right(DeclareAction.Declare31) =>
-          val humanPoints = human.totalPoints
-          val robotPoints = state.players.collectFirst {
-              case robot: Player.Robot => robot.totalPoints }.getOrElse(0)
+      case Right(DeclareAction.Continue)  => Right(None)
+      case Right(DeclareAction.Declare31) =>
+        val humanPoints = human.totalPoints
+        val robotPoints = state.players
+          .collectFirst { case robot: Player.Robot =>
+            robot.totalPoints
+          }
+          .getOrElse(0)
 
-          Right(Some(DeclarationService.humanDeclarationResult(humanPoints = humanPoints, robotPoints = robotPoints)))
-      }
+        Right(Some(DeclarationService.humanDeclarationResult(humanPoints = humanPoints, robotPoints = robotPoints)))
     }
 
     loop()
   }
 
-  private def robotDeclaration(state: GameState, robot: Player.Robot): Option[GameResult] = {
-
+  private def robotDeclaration(state: GameState, robot: Player.Robot): Option[GameResult] =
     if (!BotAi.shouldDeclare31(robot)) { None }
-    else { println( s"${robot.name} declares ${BuraRules.WinningPoints}!")
+    else {
+      println(s"${robot.name} declares ${BuraRules.WinningPoints}!")
 
       val robotPoints = robot.totalPoints
 
-      val humanPoints = state.players.collectFirst {
-          case human: Player.Human => human.totalPoints }.getOrElse(0)
+      val humanPoints = state.players
+        .collectFirst { case human: Player.Human =>
+          human.totalPoints
+        }
+        .getOrElse(0)
 
       Some(DeclarationService.robotDeclarationResult(humanPoints = humanPoints, robotPoints = robotPoints))
     }
-  }
 }

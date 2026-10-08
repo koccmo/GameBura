@@ -71,10 +71,7 @@ object GameService extends GameService {
 
       case Round.AttackerWonHidden(openTrick, hiddenTrick) =>
         Right(
-          finishWithWinner(
-            state,
-            state.attacker,
-            player =>
+          finishWithWinner(state, state.attacker, player =>
               player
                 .addTrick(openTrick)
                 .addHiddenTrick(hiddenTrick)
