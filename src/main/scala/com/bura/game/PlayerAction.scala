@@ -2,7 +2,7 @@ package com.bura.game
 
 import com.bura.model.{Attack, Defense}
 
-trait PlayerAction
+sealed trait PlayerAction
 
 object PlayerAction {
 
