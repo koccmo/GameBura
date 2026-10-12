@@ -2,7 +2,7 @@ package com.bura.ui
 
 
 import com.bura.game.GameEngine.applyPlayerAction
-import com.bura.game.{ActionResult, GameEngine, GameState, PlayerAction}
+import com.bura.game.{ActionResult, GameEngine, GameResult, GameState, PlayerAction}
 import com.bura.model.{Attack, Player}
 
 import scala.annotation.tailrec
@@ -72,4 +72,33 @@ object ConsoleGameRunner {
       }
     loop()
   }
+
+  def humanDeclaration(state: GameState, human: Player.Human): Either[String, Option[GameResult]] = {
+
+    @tailrec
+    def loop(): Either[String, Option[GameResult]] = ConsoleUI.chooseDeclareAction(human) match {
+
+        case Left(error) =>
+          println(error)
+          loop()
+
+        case Right(DeclareAction.Continue) => GameEngine.applyPlayerAction(state, PlayerAction.Continue) match {
+            case Right(ActionResult.StateUpdated(_)) => Right(None)
+            case Right(ActionResult.GameFinished(game)) => Right(Some(game.result))
+            case Left(error) => Left(error)
+          }
+
+        case Right(DeclareAction.Declare31) => GameEngine.applyPlayerAction(state, PlayerAction.Declare31) match {
+            case Right(ActionResult.GameFinished(game)) => Right(Some(game.result))
+            case Right(ActionResult.StateUpdated(_)) => Left("Declare31 should finish the game")
+            case Left(error) => Left(error)
+          }
+      }
+
+    loop()
+  }
+
+  def showRoundResult(state: GameState): Unit =
+    ConsoleUI.showRoundResult(state)
+
 }

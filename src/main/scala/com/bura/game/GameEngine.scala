@@ -1,7 +1,7 @@
 package com.bura.game
 
 import com.bura.ai.BotAi
-import com.bura.ui.{ConsoleGameRunner, ConsoleUI, DeclareAction, DefenseAction}
+import com.bura.ui.{ConsoleGameRunner}
 import com.bura.model.{Attack, Defense, Player}
 import com.bura.rules.BuraRules
 import com.bura.service.{DeclarationService, GameService}
@@ -90,7 +90,7 @@ object GameEngine {
     }
 
     result.map { newState =>
-      ConsoleUI.showRoundResult(newState)
+      ConsoleGameRunner.showRoundResult(newState)
       newState
     }
   }
@@ -126,7 +126,7 @@ object GameEngine {
       case None          => Left("Robot could not choose surrender cards")
     }
 
- 
+
 
   // GAME OVER
   private def isGameOver(state: GameState): Boolean =
@@ -153,33 +153,10 @@ object GameEngine {
   ): Either[String, Option[GameResult]] =
     state.attackingPlayer match {
 
-      case human: Player.Human => humanDeclaration(state = state, human = human)
+      case human: Player.Human => ConsoleGameRunner.humanDeclaration(state = state, human = human)
       case robot: Player.Robot => Right(robotDeclaration(state = state, robot = robot))
     }
 
-  private def humanDeclaration(state: GameState, human: Player.Human): Either[String, Option[GameResult]] = {
-
-    @annotation.tailrec
-    def loop(): Either[String, Option[GameResult]] = ConsoleUI.chooseDeclareAction(human) match {
-
-      case Left(error) =>
-        println(error)
-        loop()
-
-      case Right(DeclareAction.Continue)  => Right(None)
-      case Right(DeclareAction.Declare31) =>
-        val humanPoints = human.totalPoints
-        val robotPoints = state.players
-          .collectFirst { case robot: Player.Robot =>
-            robot.totalPoints
-          }
-          .getOrElse(0)
-
-        Right(Some(DeclarationService.humanDeclarationResult(humanPoints = humanPoints, robotPoints = robotPoints)))
-    }
-
-    loop()
-  }
 
   private def robotDeclaration(state: GameState, robot: Player.Robot): Option[GameResult] =
     if (!BotAi.shouldDeclare31(robot)) { None }
