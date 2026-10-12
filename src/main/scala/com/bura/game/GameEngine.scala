@@ -1,11 +1,10 @@
 package com.bura.game
 
 import com.bura.ai.BotAi
-import com.bura.ui.{ConsoleUI, DefenseAction}
+import com.bura.ui.{ConsoleGameRunner, ConsoleUI, DeclareAction, DefenseAction}
 import com.bura.model.{Attack, Defense, Player}
 import com.bura.rules.BuraRules
 import com.bura.service.{DeclarationService, GameService}
-import com.bura.ui.DeclareAction
 
 import scala.annotation.tailrec
 
@@ -79,14 +78,14 @@ object GameEngine {
   // ATTACK TURN
   private def playAttackTurn(state: GameState): Either[String, GameState] =
     state.attackingPlayer match {
-      case human: Player.Human => playHumanAttack(state, human)
+      case human: Player.Human => ConsoleGameRunner.playHumanAttack(state, human)
       case robot: Player.Robot => playRobotAttack(state, robot)
     }
 
   // DEFENSE TURN
   private def playDefenseTurn(state: GameState, attack: Attack): Either[String, GameState] = {
     val result = state.defendingPlayer match {
-      case human: Player.Human => playHumanDefense(state, human, attack)
+      case human: Player.Human => ConsoleGameRunner.playHumanDefense(state, human, attack)
       case robot: Player.Robot => playRobotDefense(state, robot, attack)
     }
 
@@ -127,71 +126,7 @@ object GameEngine {
       case None          => Left("Robot could not choose surrender cards")
     }
 
-  // HUMAN ATTACK
-  private def playHumanAttack(state: GameState, human: Player.Human): Either[String, GameState] = {
-    @tailrec
-    def loop(): Either[String, GameState] =
-      ConsoleUI.chooseAttack(state, human.hand) match {
-        case Left(error)   =>
-          println(error)
-          loop()
-        case Right(attack) =>
-          applyPlayerAction(state, PlayerAction.AttackCards(attack)) match {
-            case Right(ActionResult.StateUpdated(newState)) => Right(newState)
-            case Right(ActionResult.GameFinished(_))        => Left("Unexpected game finish during attack")
-            case Left(error)                                =>
-              println(error)
-              loop()
-
-          }
-      }
-    loop()
-
-  }
-
-  // HUMAN DEFENSE
-  private def playHumanDefense(
-    state: GameState,
-    human: Player.Human,
-    attack: Attack
-  ): Either[String, GameState] = {
-
-    @tailrec
-    def loop(): Either[String, GameState] =
-      ConsoleUI.chooseDefenseAction(state, attack, human.hand) match {
-        case Left(error)                    =>
-          println(error)
-          loop()
-        case Right(DefenseAction.Defend)    =>
-          ConsoleUI.chooseDefense(hand = human.hand, amount = attack.cards.size) match {
-            case Left(error)    =>
-              println(error)
-              loop()
-            case Right(defense) =>
-              applyPlayerAction(state, PlayerAction.DefendCards(defense)) match {
-                case Left(error)                                =>
-                  println(error)
-                  loop()
-                case Right(ActionResult.StateUpdated(newState)) => Right(newState)
-              }
-          }
-        case Right(DefenseAction.Surrender) =>
-          ConsoleUI.chooseSurrender(hand = human.hand, amount = attack.cards.size) match {
-            case Left(error)    =>
-              println(error)
-              loop()
-            case Right(defense) =>
-              applyPlayerAction(state, PlayerAction.SurrenderCards(defense)) match {
-                case Left(error)                                =>
-                  println(error)
-                  loop()
-                case Right(ActionResult.StateUpdated(newState)) => Right(newState)
-                case Right(ActionResult.GameFinished(_))        => Left("Unexpected game finish during surrender")
-              }
-          }
-      }
-    loop()
-  }
+ 
 
   // GAME OVER
   private def isGameOver(state: GameState): Boolean =
