@@ -2,7 +2,7 @@ package com.bura.game
 
 import com.bura.model.Rank.{Ace, Ten}
 import com.bura.model.Suit.{Clubs, Hearts}
-import com.bura.model.{Card, Deck, Player, Rank, Suit, WonTrick}
+import com.bura.model.{Attack, Card, Deck, Defense, Player, Rank, Suit, WonTrick}
 import org.scalatest.funsuite.AnyFunSuite
 
 class GameEngineSpec extends AnyFunSuite {
@@ -11,6 +11,12 @@ class GameEngineSpec extends AnyFunSuite {
   private val aceHearts = Card(Ace, Hearts)
   private val tenHearts = Card(Rank.Ten, Suit.Hearts)
   private val kingSpared = Card(Rank.King, Suit.Spades)
+  private val tenSpades = Card(Rank.Ten, Suit.Spades)
+  private val kingClubs = Card(Rank.King, Suit.Clubs)
+  private val sixHearts = Card(Rank.Six, Suit.Hearts)
+  private val nineSpared = Card(Rank.Nine, Suit.Spades)
+  private val sevenHearts = Card(Rank.Seven, Suit.Hearts)
+  private val nineSpades = Card(Rank.Nine, Suit.Spades)
 
   test("play returns HumanWon when human has more points") {
 
@@ -182,6 +188,252 @@ class GameEngineSpec extends AnyFunSuite {
     assert(result == Left("Robot player not found"))
   }
 
+  test("Declare31 finishes game with HumanWon when human has 31 points") {
 
+    val human = Player.Human(
+      name = "Human",
+      hand = Nil,
+      tricks = List(WonTrick.Open(List(aceHearts, tenClubs, tenSpades)))
+    )
+
+    val robot = Player.Robot(
+      name = "Robot",
+      hand = Nil,
+      tricks = List(WonTrick.Open(List(kingClubs)))
+    )
+
+    val state = GameState(
+      deck = Deck(Nil),
+      players = Vector(human, robot),
+      attacker = 0,
+      defender = 1,
+      trump = Suit.Hearts
+    )
+
+    val result = GameEngine.applyPlayerAction(state, PlayerAction.Declare31)
+
+    assert(result == Right(ActionResult.GameFinished(
+      FinishedGame(state = state, result = GameResult.HumanWon(humanPoints = 31, robotPoints = 4))
+          )
+        )
+    )
+  }
+
+  test("Declare31 finishes game with RobotWon when human has less than 31 points") {
+
+    val human = Player.Human(
+      name = "Human",
+      hand = Nil,
+      tricks = List(WonTrick.Open(List(tenHearts, tenClubs, tenSpades)))
+    )
+
+    val robot = Player.Robot(
+      name = "Robot",
+      hand = Nil,
+      tricks = List(WonTrick.Open(List(kingClubs)))
+    )
+
+    val state = GameState(
+      deck = Deck(Nil),
+      players = Vector(human, robot),
+      attacker = 0,
+      defender = 1,
+      trump = Suit.Hearts
+    )
+
+    val result = GameEngine.applyPlayerAction(state, PlayerAction.Declare31)
+
+    assert(result == Right(ActionResult.GameFinished(
+      FinishedGame(state = state, result = GameResult.RobotWon(humanPoints = 30, robotPoints = 4))
+          )
+        )
+    )
+  }
+
+  test("Declare31 finishes game with RobotWon when robot has 31 points") {
+
+    val human = Player.Human(
+      name = "Human",
+      hand = Nil,
+      tricks = List(WonTrick.Open(List(kingClubs)))
+    )
+
+    val robot = Player.Robot(
+      name = "Robot",
+      hand = Nil,
+      tricks = List(WonTrick.Open(List(aceHearts, tenClubs, tenSpades)))
+    )
+
+    val state = GameState(
+      deck = Deck(Nil),
+      players = Vector(human, robot),
+      attacker = 1,
+      defender = 0,
+      trump = Suit.Hearts
+    )
+
+    val result = GameEngine.applyPlayerAction(state, PlayerAction.Declare31)
+
+    assert(result == Right(ActionResult.GameFinished(
+            FinishedGame(
+              state = state,
+              result = GameResult.RobotWon(humanPoints = 4, robotPoints = 31)
+            )
+          )
+        )
+    )
+  }
+
+  test("Declare31 finishes game with HumanWon when robot has less than 31 points") {
+
+    val human = Player.Human(
+      name = "Human",
+      hand = Nil,
+      tricks = List(WonTrick.Open(List(kingClubs)))
+    )
+
+    val robot = Player.Robot(
+      name = "Robot",
+      hand = Nil,
+      tricks = List(WonTrick.Open(List(tenHearts, tenClubs, tenSpades)))
+    )
+
+    val state = GameState(
+      deck = Deck(Nil),
+      players = Vector(human, robot),
+      attacker = 1,
+      defender = 0,
+      trump = Suit.Hearts
+    )
+
+    val result = GameEngine.applyPlayerAction(state, PlayerAction.Declare31)
+
+    assert(result == Right(ActionResult.GameFinished(
+            FinishedGame(
+              state = state,
+              result = GameResult.HumanWon(humanPoints = 4, robotPoints = 30)
+            )
+          )
+        )
+    )
+  }
+
+  test("Continue returns StateUpdated with unchanged state") {
+
+    val human = Player.Human(name = "Human", hand = Nil)
+    val robot = Player.Robot(name = "Robot", hand = Nil)
+    val state = GameState(
+      deck = Deck(Nil),
+      players = Vector(human, robot),
+      attacker = 0,
+      defender = 1,
+      trump = Suit.Hearts
+    )
+
+    val result = GameEngine.applyPlayerAction(state, PlayerAction.Continue)
+
+    assert(result == Right(ActionResult.StateUpdated(state)))
+  }
+
+  test("AttackCards updates state through GameService") {
+
+    val human = Player.Human(name = "Human", hand = List(sixHearts, tenClubs))
+    val robot = Player.Robot(name = "Robot", hand = List(nineSpared))
+
+    val state = GameState(
+      deck = Deck(Nil),
+      players = Vector(human, robot),
+      attacker = 0,
+      defender = 1,
+      trump = Suit.Hearts
+    )
+
+    val attack = Attack(List(sixHearts))
+
+    val result = GameEngine.applyPlayerAction(state, PlayerAction.AttackCards(attack))
+
+    assert(result.isRight)
+
+    val actionResult = result.toOption.get
+
+    actionResult match {
+
+      case ActionResult.StateUpdated(newState) =>
+        assert(newState.attackingPlayer.hand == List(tenClubs))
+        assert(newState.round == Round.WaitingDefense(attack))
+
+      case ActionResult.GameFinished(_) => fail("Attack should update state, not finish game")
+    }
+  }
+
+  test("DefendCards updates state through GameService") {
+
+    val human = Player.Human(name = "Human", hand = List(tenClubs))
+    val robot = Player.Robot(name = "Robot", hand = List(sevenHearts, nineSpades))
+
+    val attack = Attack(List(sixHearts))
+
+    val state = GameState(
+      deck = Deck(Nil),
+      players = Vector(human, robot),
+      attacker = 0,
+      defender = 1,
+      trump = Suit.Hearts,
+      round = Round.WaitingDefense(attack)
+    )
+
+    val defense = Defense(List(sevenHearts))
+
+    val result = GameEngine.applyPlayerAction(state, PlayerAction.DefendCards(defense))
+
+    assert(result.isRight)
+
+    result.toOption.get match {
+
+      case ActionResult.StateUpdated(newState) =>
+
+        assert(!newState.players(1).hand.contains(sevenHearts))
+
+        assert(newState.attacker == 1)
+
+        assert(newState.round == Round.WaitingAttack)
+
+      case ActionResult.GameFinished(_) =>
+        fail("Defense should update state, not finish game")
+    }
+  }
+
+  test("SurrenderCards updates state through GameService") {
+
+    val human = Player.Human(name = "Human", hand = List(tenClubs))
+    val robot = Player.Robot(name = "Robot", hand = List(sevenHearts, nineSpades))
+    val attack = Attack(List(sixHearts))
+
+    val state = GameState(
+      deck = Deck(Nil),
+      players = Vector(human, robot),
+      attacker = 0,
+      defender = 1,
+      trump = Suit.Hearts,
+      round = Round.WaitingDefense(attack)
+    )
+
+    val defense = Defense(List(sevenHearts))
+
+    val result = GameEngine.applyPlayerAction(state, PlayerAction.SurrenderCards(defense))
+    assert(result.isRight)
+
+    result.toOption.get match {
+      case ActionResult.StateUpdated(newState) =>
+        assert(!newState.players(1).hand.contains(sevenHearts))
+        assert(newState.players(0).tricks == List(WonTrick.Open(List(sixHearts))))
+        assert(newState.players(0).hiddenTricks == List(WonTrick.Hidden(List(sevenHearts))))
+        assert(newState.attacker == 0)
+        assert(newState.round == Round.WaitingAttack)
+
+      case ActionResult.GameFinished(_) =>
+        fail("Surrender should update state, not finish game")
+    }
+  }
 
 }

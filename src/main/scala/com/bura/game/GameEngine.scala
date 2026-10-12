@@ -41,13 +41,31 @@ object GameEngine {
   }
 
   //PLAYER ACTION
-  private def applyPlayerAction(state: GameState, action: PlayerAction): Either[String, ActionResult] =
+  def applyPlayerAction(state: GameState, action: PlayerAction): Either[String, ActionResult] =
     action match {
       case PlayerAction.AttackCards(attack)     => GameService.attack(state, attack).map(ActionResult.StateUpdated.apply)
       case PlayerAction.DefendCards(defense)    => GameService.defend(state, defense).map(ActionResult.StateUpdated.apply)
       case PlayerAction.SurrenderCards(defense) => GameService.surrender(state, defense).map(ActionResult.StateUpdated.apply)
-      case PlayerAction.Declare31               => Left("Declare31 is not implemented yet")
       case PlayerAction.Continue                => Right(ActionResult.StateUpdated(state))
+      case PlayerAction.Declare31               => state.attackingPlayer match {
+          case human: Player.Human => state.players.collectFirst {
+              case robot: Player.Robot => robot }
+                .toRight("Robot player not found")
+                .map { robot => val result =
+                  DeclarationService.humanDeclarationResult(humanPoints = human.totalPoints, robotPoints = robot.totalPoints)
+
+                  ActionResult.GameFinished(FinishedGame(state = state, result = result))
+                }
+
+          case robot: Player.Robot => state.players.collectFirst {
+              case human: Player.Human => human }
+                .toRight("Human player not found")
+                .map { human => val result =
+                  DeclarationService.robotDeclarationResult(humanPoints = human.totalPoints, robotPoints = robot.totalPoints)
+
+                  ActionResult.GameFinished(FinishedGame(state = state, result = result))
+               }
+        }
     }
 
   // TURN
@@ -120,8 +138,8 @@ object GameEngine {
         case Right(attack) =>
           applyPlayerAction(state, PlayerAction.AttackCards(attack)) match {
             case Right(ActionResult.StateUpdated(newState)) => Right(newState)
-            case Right(ActionResult.GameFinished(_)) => Left("Unexpected game finish during attack")
-            case Left(error)     =>
+            case Right(ActionResult.GameFinished(_))        => Left("Unexpected game finish during attack")
+            case Left(error)                                =>
               println(error)
               loop()
 
@@ -151,7 +169,7 @@ object GameEngine {
               loop()
             case Right(defense) =>
               applyPlayerAction(state, PlayerAction.DefendCards(defense)) match {
-                case Left(error)     =>
+                case Left(error)                                =>
                   println(error)
                   loop()
                 case Right(ActionResult.StateUpdated(newState)) => Right(newState)
@@ -164,17 +182,16 @@ object GameEngine {
               loop()
             case Right(defense) =>
               applyPlayerAction(state, PlayerAction.SurrenderCards(defense)) match {
-                case Left(error)     =>
+                case Left(error)                                =>
                   println(error)
                   loop()
                 case Right(ActionResult.StateUpdated(newState)) => Right(newState)
-                case Right(ActionResult.GameFinished(_)) => Left("Unexpected game finish during surrender")
+                case Right(ActionResult.GameFinished(_))        => Left("Unexpected game finish during surrender")
               }
           }
       }
     loop()
   }
-
 
   // GAME OVER
   private def isGameOver(state: GameState): Boolean =
