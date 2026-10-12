@@ -3,6 +3,7 @@ package com.bura.game
 import com.bura.model.Rank.{Ace, Ten}
 import com.bura.model.Suit.{Clubs, Hearts}
 import com.bura.model.{Attack, Card, Deck, Defense, Player, Rank, Suit, WonTrick}
+import com.bura.ui.ConsoleGameRunner
 import org.scalatest.funsuite.AnyFunSuite
 
 class GameEngineSpec extends AnyFunSuite {
@@ -46,7 +47,7 @@ class GameEngineSpec extends AnyFunSuite {
     )
 
     // Act
-    val result = GameEngine.play(state)
+    val result = ConsoleGameRunner.play(state)
 
     // Assert
     assert(result.isRight)
@@ -74,7 +75,7 @@ class GameEngineSpec extends AnyFunSuite {
     )
 
     // Act
-    val result = GameEngine.play(state)
+    val result = ConsoleGameRunner.play(state)
 
     // Assert
     assert(result.isRight)
@@ -101,7 +102,7 @@ class GameEngineSpec extends AnyFunSuite {
     )
 
     // Act
-    val result = GameEngine.play(state)
+    val result = ConsoleGameRunner.play(state)
 
     // Assert
     assert(result.isRight)
@@ -136,7 +137,7 @@ class GameEngineSpec extends AnyFunSuite {
       trump = Suit.Hearts
     )
 
-    val result = GameEngine.play(state)
+    val result = ConsoleGameRunner.play(state)
 
     assert(result.isRight)
 
@@ -160,7 +161,7 @@ class GameEngineSpec extends AnyFunSuite {
       trump = Suit.Hearts
     )
 
-    val result = GameEngine.play(state)
+    val result = ConsoleGameRunner.play(state)
 
     assert(result == Left("Human player not found"))
   }
@@ -183,7 +184,7 @@ class GameEngineSpec extends AnyFunSuite {
       trump = Suit.Hearts
     )
 
-    val result = GameEngine.play(state)
+    val result = ConsoleGameRunner.play(state)
 
     assert(result == Left("Robot player not found"))
   }

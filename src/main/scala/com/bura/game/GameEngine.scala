@@ -1,43 +1,12 @@
 package com.bura.game
 
 import com.bura.ai.BotAi
-import com.bura.ui.{ConsoleGameRunner}
 import com.bura.model.{Attack, Defense, Player}
-import com.bura.rules.BuraRules
 import com.bura.service.{DeclarationService, GameService}
 
-import scala.annotation.tailrec
 
 object GameEngine {
 
-  def play(initialState: GameState): Either[String, FinishedGame] = {
-
-    @annotation.tailrec
-    def loop(state: GameState): Either[String, FinishedGame] =
-      if (isGameOver(state)) {
-        gameResult(state).map { result =>
-          FinishedGame(state = state, result = result)
-        }
-      } else {
-        playTurn(state) match {
-          case Right(newState) =>
-            state.round match {
-
-              case Round.WaitingDefense(_) =>
-                checkDeclaration(newState) match {
-                  case Left(error)         => Left(error)
-                  case Right(Some(result)) => Right(FinishedGame(state = newState, result = result))
-                  case Right(None)         => loop(newState)
-                }
-
-              case _ => loop(newState)
-            }
-          case Left(error)     => Left(error)
-        }
-      }
-
-    loop(initialState)
-  }
 
   //PLAYER ACTION
   def applyPlayerAction(state: GameState, action: PlayerAction): Either[String, ActionResult] =
@@ -67,36 +36,8 @@ object GameEngine {
         }
     }
 
-  // TURN
-  private def playTurn(state: GameState): Either[String, GameState] =
-    state.round match {
-      case Round.WaitingAttack          => playAttackTurn(state)
-      case Round.WaitingDefense(attack) => playDefenseTurn(state, attack)
-      case _                            => Left(s"Unexpected round state: ${state.round}")
-    }
-
-  // ATTACK TURN
-  private def playAttackTurn(state: GameState): Either[String, GameState] =
-    state.attackingPlayer match {
-      case human: Player.Human => ConsoleGameRunner.playHumanAttack(state, human)
-      case robot: Player.Robot => playRobotAttack(state, robot)
-    }
-
-  // DEFENSE TURN
-  private def playDefenseTurn(state: GameState, attack: Attack): Either[String, GameState] = {
-    val result = state.defendingPlayer match {
-      case human: Player.Human => ConsoleGameRunner.playHumanDefense(state, human, attack)
-      case robot: Player.Robot => playRobotDefense(state, robot, attack)
-    }
-
-    result.map { newState =>
-      ConsoleGameRunner.showRoundResult(newState)
-      newState
-    }
-  }
-
   // ROBOT ATTACK
-  private def playRobotAttack(state: GameState, robot: Player.Robot): Either[String, GameState] =
+  def playRobotAttack(state: GameState, robot: Player.Robot): Either[String, GameState] =
     BotAi
       .chooseAttack(state, robot) match {
       case Some(attack) => GameService.attack(state, attack)
@@ -104,7 +45,7 @@ object GameEngine {
     }
 
   // ROBOT DEFENSE
-  private def playRobotDefense(
+  def playRobotDefense(
     state: GameState,
     robot: Player.Robot,
     attack: Attack
@@ -116,7 +57,7 @@ object GameEngine {
     }
 
   // ROBOT Surrender
-  private def playRobotSurrender(
+  def playRobotSurrender(
     state: GameState,
     robot: Player.Robot,
     attack: Attack
@@ -129,10 +70,10 @@ object GameEngine {
 
 
   // GAME OVER
-  private def isGameOver(state: GameState): Boolean =
+  def isGameOver(state: GameState): Boolean =
     state.deck.isEmpty && state.players.forall(_.hand.isEmpty)
 
-  private def gameResult(state: GameState): Either[String, GameResult] =
+  def gameResult(state: GameState): Either[String, GameResult] =
     for {
       human <- state.players.collectFirst { case human: Player.Human => human }.toRight("Human player not found")
       robot <- state.players.collectFirst { case robot: Player.Robot => robot }.toRight("Robot player not found")
@@ -148,27 +89,15 @@ object GameEngine {
 
   //DECLARATION
 
-  private def checkDeclaration(
-    state: GameState
-  ): Either[String, Option[GameResult]] =
-    state.attackingPlayer match {
-
-      case human: Player.Human => ConsoleGameRunner.humanDeclaration(state = state, human = human)
-      case robot: Player.Robot => Right(robotDeclaration(state = state, robot = robot))
-    }
-
-
-  private def robotDeclaration(state: GameState, robot: Player.Robot): Option[GameResult] =
+  def robotDeclaration(state: GameState, robot: Player.Robot): Option[GameResult] =
     if (!BotAi.shouldDeclare31(robot)) { None }
     else {
-      println(s"${robot.name} declares ${BuraRules.WinningPoints}!")
 
       val robotPoints = robot.totalPoints
 
       val humanPoints = state.players
         .collectFirst { case human: Player.Human =>
-          human.totalPoints
-        }
+          human.totalPoints}
         .getOrElse(0)
 
       Some(DeclarationService.robotDeclarationResult(humanPoints = humanPoints, robotPoints = robotPoints))

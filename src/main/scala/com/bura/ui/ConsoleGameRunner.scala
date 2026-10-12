@@ -2,13 +2,74 @@ package com.bura.ui
 
 
 import com.bura.game.GameEngine.applyPlayerAction
-import com.bura.game.{ActionResult, GameEngine, GameResult, GameState, PlayerAction}
+import com.bura.game.{ActionResult, FinishedGame, GameEngine, GameResult, GameState, PlayerAction, Round}
 import com.bura.model.{Attack, Player}
+import com.bura.rules.BuraRules
 
 import scala.annotation.tailrec
 
 object ConsoleGameRunner {
 
+  def play(initialState: GameState): Either[String, FinishedGame] = {
+
+    @tailrec
+    def loop(state: GameState): Either[String, FinishedGame] = {
+      if (GameEngine.isGameOver(state)) {
+        GameEngine
+          .gameResult(state)
+          .map(result => FinishedGame(state = state, result = result))
+      } else {
+        playTurn(state) match {
+
+          case Left(error) => Left(error)
+          case Right(newState) => state.round match {
+            case Round.WaitingDefense(_) => checkDeclaration(newState) match {
+              case Left(error) => Left(error)
+              case Right(Some(result)) => Right(FinishedGame(state = newState, result = result))
+
+              case Right(None) =>
+                loop(newState)
+            }
+
+            case _ =>
+              loop(newState)
+          }
+        }
+      }
+    }
+
+    loop(initialState)
+  }
+
+//TURN
+  private def playTurn(state: GameState): Either[String, GameState] = state.round match {
+
+    case Round.WaitingAttack => playAttackTurn(state)
+    case Round.WaitingDefense(attack) => playDefenseTurn(state, attack)
+    case _ => Left(s"Unexpected round state: ${state.round}")
+  }
+
+//ATTACK TURN
+  private def playAttackTurn(state: GameState): Either[String, GameState] = state.attackingPlayer match {
+
+    case human: Player.Human => playHumanAttack(state, human)
+    case robot: Player.Robot => GameEngine.playRobotAttack(state, robot)}
+
+//DEFENSE TURN
+  private def playDefenseTurn(state: GameState, attack: Attack): Either[String, GameState] = {
+
+    val result = state.defendingPlayer match {
+
+      case human: Player.Human => playHumanDefense(state, human, attack)
+      case robot: Player.Robot => GameEngine.playRobotDefense(state, robot, attack)
+    }
+
+    result.map { newState => showRoundResult(newState)
+      newState
+    }
+  }
+
+  //HUMAN PLAY
   def playHumanAttack(state: GameState, human: Player.Human): Either[String, GameState] = {
     @tailrec
     def loop(): Either[String, GameState] =
@@ -73,6 +134,13 @@ object ConsoleGameRunner {
     loop()
   }
 
+//DECLARATION
+  private def checkDeclaration(state: GameState): Either[String, Option[GameResult]] = state.attackingPlayer match {
+
+    case human: Player.Human => humanDeclaration(state = state, human = human)
+    case robot: Player.Robot => Right(GameEngine.robotDeclaration(state, robot))
+  }
+
   def humanDeclaration(state: GameState, human: Player.Human): Either[String, Option[GameResult]] = {
 
     @tailrec
@@ -100,5 +168,10 @@ object ConsoleGameRunner {
 
   def showRoundResult(state: GameState): Unit =
     ConsoleUI.showRoundResult(state)
+
+  def showRobotDeclaration(robot: Player.Robot): Unit =
+    println(s"${robot.name} declares ${BuraRules.WinningPoints}!")
+
+
 
 }
