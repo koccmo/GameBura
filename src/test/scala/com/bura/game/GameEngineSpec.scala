@@ -732,4 +732,100 @@ class GameEngineSpec extends AnyFunSuite {
     assert(result.isEmpty)
   }
 
+  test("Declare31 returns error when robot player is missing") {
+
+    val human = Player.Human(name = "Human", hand = Nil)
+
+    val state = GameState(
+      deck = Deck(Nil),
+      players = Vector(human),
+      attacker = 0,
+      defender = 0,
+      trump = Suit.Hearts
+    )
+
+    val result = GameEngine.applyPlayerAction(state, PlayerAction.Declare31)
+
+    assert(result == Left("Robot player not found"))
+  }
+
+  test("Declare31 returns error when human player is missing") {
+
+    val robot = Player.Robot(name = "Robot", hand = Nil)
+
+    val state = GameState(
+      deck = Deck(Nil),
+      players = Vector(robot),
+      attacker = 0,
+      defender = 0,
+      trump = Suit.Hearts
+    )
+
+    val result = GameEngine.applyPlayerAction(state, PlayerAction.Declare31)
+
+    assert(result == Left("Human player not found"))
+  }
+
+  test("AttackCards returns error when player does not have attack card") {
+
+    val human = Player.Human(name = "Human", hand = List(tenClubs))
+    val robot = Player.Robot(name = "Robot", hand = Nil)
+
+    val state = GameState(
+      deck = Deck(Nil),
+      players = Vector(human, robot),
+      attacker = 0,
+      defender = 1,
+      trump = Suit.Hearts
+    )
+
+    val attack = Attack(List(sixHearts))
+    val result = GameEngine.applyPlayerAction(state, PlayerAction.AttackCards(attack))
+
+    assert(result == Left("Player does not have these cards"))
+  }
+
+  test("DefendCards returns error when defender does not have defense card") {
+
+    val human = Player.Human(name = "Human", hand = Nil)
+    val robot = Player.Robot(name = "Robot", hand = List(nineSpades))
+    val attack = Attack(List(sixHearts))
+
+    val state = GameState(
+      deck = Deck(Nil),
+      players = Vector(human, robot),
+      attacker = 0,
+      defender = 1,
+      trump = Suit.Hearts,
+      round = Round.WaitingDefense(attack)
+    )
+
+    val defense = Defense(List(sevenHearts))
+
+    val result = GameEngine.applyPlayerAction(state, PlayerAction.DefendCards(defense))
+
+    assert(result == Left("Player does not have these cards"))
+  }
+
+  test("SurrenderCards returns error when defender does not have surrender card") {
+
+    val human = Player.Human(name = "Human", hand = Nil)
+    val robot = Player.Robot(name = "Robot", hand = List(nineSpades))
+    val attack = Attack(List(sixHearts))
+
+    val state = GameState(
+      deck = Deck(Nil),
+      players = Vector(human, robot),
+      attacker = 0,
+      defender = 1,
+      trump = Suit.Hearts,
+      round = Round.WaitingDefense(attack)
+    )
+
+    val defense = Defense(List(sevenHearts))
+
+    val result = GameEngine.applyPlayerAction(state, PlayerAction.SurrenderCards(defense))
+
+    assert(result == Left("Player does not have these cards"))
+  }
 }
