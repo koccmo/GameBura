@@ -522,4 +522,214 @@ class GameEngineSpec extends AnyFunSuite {
     assert(newState.round == Round.WaitingAttack)
   }
 
+  test("isGameOver returns true when deck and all hands are empty") {
+
+    val human = Player.Human(name = "Human", hand = Nil)
+    val robot = Player.Robot(name = "Robot", hand = Nil)
+    val state = GameState(
+      deck = Deck(Nil),
+      players = Vector(human, robot),
+      attacker = 0,
+      defender = 1,
+      trump = Suit.Hearts
+    )
+
+    assert(GameEngine.isGameOver(state))
+  }
+
+  test("isGameOver returns false when a player still has cards") {
+
+    val human = Player.Human(name = "Human", hand = List(sixHearts))
+    val robot = Player.Robot(name = "Robot", hand = Nil)
+    val state = GameState(
+      deck = Deck(Nil),
+      players = Vector(human, robot),
+      attacker = 0,
+      defender = 1,
+      trump = Suit.Hearts
+    )
+
+    assert(!GameEngine.isGameOver(state))
+  }
+
+  test("isGameOver returns false when deck still has cards") {
+
+    val human = Player.Human(name = "Human", hand = Nil)
+    val robot = Player.Robot(name = "Robot", hand = Nil)
+    val state = GameState(
+      deck = Deck(List(sixHearts)),
+      players = Vector(human, robot),
+      attacker = 0,
+      defender = 1,
+      trump = Suit.Hearts
+    )
+
+    assert(!GameEngine.isGameOver(state))
+  }
+
+  test("gameResult returns HumanWon when human has more points") {
+
+    val human = Player.Human(
+      name = "Human",
+      hand = Nil,
+      tricks = List(WonTrick.Open(List(Card(Rank.Ace, Suit.Hearts))))
+    )
+
+    val robot = Player.Robot(
+      name = "Robot",
+      hand = Nil,
+      tricks = List(WonTrick.Open(List(Card(Rank.King, Suit.Clubs))))
+    )
+
+    val state = GameState(
+      deck = Deck(Nil),
+      players = Vector(human, robot),
+      attacker = 0,
+      defender = 1,
+      trump = Suit.Hearts
+    )
+
+    val result = GameEngine.gameResult(state)
+
+    assert(result == Right(GameResult.HumanWon(humanPoints = 11, robotPoints = 4)))
+  }
+
+  test("gameResult returns RobotWon when robot has more points") {
+
+    val human = Player.Human(
+      name = "Human",
+      hand = Nil,
+      tricks = List(WonTrick.Open(List(Card(Rank.King, Suit.Clubs))))
+    )
+
+    val robot = Player.Robot(
+      name = "Robot",
+      hand = Nil,
+      tricks = List(WonTrick.Open(List(Card(Rank.Ace, Suit.Hearts))))
+    )
+
+    val state = GameState(
+      deck = Deck(Nil),
+      players = Vector(human, robot),
+      attacker = 0,
+      defender = 1,
+      trump = Suit.Hearts
+    )
+
+    val result = GameEngine.gameResult(state)
+
+    assert(result == Right(GameResult.RobotWon(humanPoints = 4, robotPoints = 11)))
+  }
+
+  test("gameResult returns Draw when players have equal points") {
+
+    val human = Player.Human(
+      name = "Human",
+      hand = Nil,
+      tricks = List(WonTrick.Open(List(Card(Rank.King, Suit.Hearts))))
+    )
+
+    val robot = Player.Robot(
+      name = "Robot",
+      hand = Nil,
+      tricks = List(WonTrick.Open(List(Card(Rank.King, Suit.Clubs))))
+    )
+
+    val state = GameState(
+      deck = Deck(Nil),
+      players = Vector(human, robot),
+      attacker = 0,
+      defender = 1,
+      trump = Suit.Hearts
+    )
+
+    val result = GameEngine.gameResult(state)
+
+    assert(result == Right(GameResult.Draw(humanPoints = 4, robotPoints = 4)))
+  }
+
+  test("gameResult returns error when human player is missing") {
+
+    val robot = Player.Robot(name = "Robot", hand = Nil)
+
+    val state = GameState(
+      deck = Deck(Nil),
+      players = Vector(robot),
+      attacker = 0,
+      defender = 0,
+      trump = Suit.Hearts
+    )
+
+    val result = GameEngine.gameResult(state)
+
+    assert(result == Left("Human player not found"))
+  }
+
+  test("gameResult returns error when robot player is missing") {
+
+    val human = Player.Human(name = "Human", hand = Nil)
+
+    val state = GameState(
+      deck = Deck(Nil),
+      players = Vector(human),
+      attacker = 0,
+      defender = 0,
+      trump = Suit.Hearts
+    )
+
+    val result = GameEngine.gameResult(state)
+
+    assert(result == Left("Robot player not found"))
+  }
+
+  test("robotDeclaration returns RobotWon when robot has 31 points") {
+
+    val human = Player.Human(
+      name = "Human",
+      hand = Nil,
+      tricks = List(WonTrick.Open(List(Card(Rank.King, Suit.Clubs))))
+    )
+
+    val robot = Player.Robot(
+      name = "Robot",
+      hand = Nil,
+      tricks = List(WonTrick.Open(List(aceHearts , tenClubs, tenSpades)))
+    )
+
+    val state = GameState(
+      deck = Deck(Nil),
+      players = Vector(human, robot),
+      attacker = 1,
+      defender = 0,
+      trump = Suit.Hearts
+    )
+
+    val result = GameEngine.robotDeclaration(state, robot)
+
+    assert(result.contains(GameResult.RobotWon(humanPoints = 4, robotPoints = 31)))
+  }
+
+  test("robotDeclaration returns None when robot has less than 31 points") {
+
+    val human = Player.Human(name = "Human", hand = Nil)
+
+    val robot = Player.Robot(
+      name = "Robot",
+      hand = Nil,
+      tricks = List(WonTrick.Open(List(tenHearts, tenClubs)))
+    )
+
+    val state = GameState(
+      deck = Deck(Nil),
+      players = Vector(human, robot),
+      attacker = 1,
+      defender = 0,
+      trump = Suit.Hearts
+    )
+
+    val result = GameEngine.robotDeclaration(state, robot)
+
+    assert(result.isEmpty)
+  }
+
 }
