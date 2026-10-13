@@ -38,37 +38,53 @@ object GameEngine {
 
   // ROBOT ATTACK
   def playRobotAttack(state: GameState, robot: Player.Robot): Either[String, GameState] =
-    BotAi
-      .chooseAttack(state, robot) match {
-      case Some(attack) => GameService.attack(state, attack)
-      case None         => Left("Robot could not choose an attack")
+    BotAi.chooseAttack(state, robot) match {
+
+      case Some(attack) => applyPlayerAction(state, PlayerAction.AttackCards(attack)) match {
+
+          case Right(ActionResult.StateUpdated(newState)) => Right(newState)
+          case Right(ActionResult.GameFinished(_)) => Left("Unexpected game finish during robot attack")
+          case Left(error) => Left(error)
+        }
+
+      case None => Left("Robot could not choose an attack")
     }
 
   // ROBOT DEFENSE
   def playRobotDefense(
-    state: GameState,
-    robot: Player.Robot,
-    attack: Attack
-  ): Either[String, GameState] =
-    BotAi.chooseDefense(state, robot, attack) match {
+                        state: GameState,
+                        robot: Player.Robot,
+                        attack: Attack
+                      ): Either[String, GameState] = BotAi.chooseDefense(state, robot, attack) match {
 
-      case Some(defense) => GameService.defend(state, defense)
-      case None          => playRobotSurrender(state, robot, attack)
+      case Some(defense) => applyPlayerAction(state, PlayerAction.DefendCards(defense)) match {
+
+          case Right(ActionResult.StateUpdated(newState)) => Right(newState)
+          case Right(ActionResult.GameFinished(_)) => Left("Unexpected game finish during robot defense")
+          case Left(error) => Left(error)
+        }
+
+      case None => playRobotSurrender(state, robot, attack)
     }
 
   // ROBOT Surrender
   def playRobotSurrender(
-    state: GameState,
-    robot: Player.Robot,
-    attack: Attack
-  ): Either[String, GameState] =
+                          state: GameState,
+                          robot: Player.Robot,
+                          attack: Attack
+                        ): Either[String, GameState] =
     BotAi.chooseSurrenderDefense(state, robot, attack) match {
-      case Some(defense) => GameService.surrender(state, defense)
-      case None          => Left("Robot could not choose surrender cards")
+
+      case Some(defense) => applyPlayerAction(state, PlayerAction.SurrenderCards(defense)) match {
+
+          case Right(ActionResult.StateUpdated(newState)) => Right(newState)
+          case Right(ActionResult.GameFinished(_)) => Left("Unexpected game finish during robot surrender")
+          case Left(error) => Left(error)
+        }
+
+      case None => Left("Robot could not choose surrender cards")
     }
-
-
-
+  
   // GAME OVER
   def isGameOver(state: GameState): Boolean =
     state.deck.isEmpty && state.players.forall(_.hand.isEmpty)
