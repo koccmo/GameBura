@@ -84,7 +84,7 @@ object GameEngine {
 
       case None => Left("Robot could not choose surrender cards")
     }
-  
+
   // GAME OVER
   def isGameOver(state: GameState): Boolean =
     state.deck.isEmpty && state.players.forall(_.hand.isEmpty)

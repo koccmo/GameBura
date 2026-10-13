@@ -18,6 +18,7 @@ class GameEngineSpec extends AnyFunSuite {
   private val nineSpared = Card(Rank.Nine, Suit.Spades)
   private val sevenHearts = Card(Rank.Seven, Suit.Hearts)
   private val nineSpades = Card(Rank.Nine, Suit.Spades)
+  private val sevenClubs = Card(Rank.Seven, Suit.Clubs)
 
   test("play returns HumanWon when human has more points") {
 
@@ -435,6 +436,90 @@ class GameEngineSpec extends AnyFunSuite {
       case ActionResult.GameFinished(_) =>
         fail("Surrender should update state, not finish game")
     }
+  }
+
+  test("playRobotAttack applies robot attack and updates state") {
+
+    val human = Player.Human(name = "Human", hand = List(tenClubs))
+    val robot = Player.Robot(name = "Robot", hand = List(sixHearts))
+
+    val state = GameState(
+      deck = Deck(Nil),
+      players = Vector(human, robot),
+      attacker = 1,
+      defender = 0,
+      trump = Suit.Hearts
+    )
+
+    val result = GameEngine.playRobotAttack(state, robot)
+
+    assert(result.isRight)
+
+    val newState = result.toOption.get
+
+    assert(newState.players(1).hand.isEmpty)
+
+    assert(newState.round == Round.WaitingDefense(Attack(List(sixHearts))))
+  }
+
+  test("playRobotDefense applies robot defense and updates state") {
+
+    val human = Player.Human(name = "Human", hand = List(tenClubs))
+    val robot = Player.Robot(name = "Robot", hand = List(sevenHearts))
+    val attack = Attack(List(sixHearts))
+
+    val state = GameState(
+      deck = Deck(Nil),
+      players = Vector(human, robot),
+      attacker = 0,
+      defender = 1,
+      trump = Suit.Hearts,
+      round = Round.WaitingDefense(attack)
+    )
+
+    val result = GameEngine.playRobotDefense(state, robot, attack)
+
+    assert(result.isRight)
+
+    val newState = result.toOption.get
+
+    assert(newState.players(1).hand.isEmpty)
+
+    assert(newState.attacker == 1)
+
+    assert(newState.round == Round.WaitingAttack)
+  }
+
+  test("playRobotSurrender applies surrender and updates state") {
+
+    val human = Player.Human(name = "Human", hand = List(tenSpades))
+    val robot = Player.Robot(name = "Robot", hand = List(sevenClubs))
+    val attack = Attack(List(sixHearts))
+
+    val state = GameState(
+      deck = Deck(Nil),
+      players = Vector(human, robot),
+      attacker = 0,
+      defender = 1,
+      trump = Suit.Hearts,
+      round = Round.WaitingDefense(attack)
+    )
+
+    val result = GameEngine.playRobotSurrender(state, robot, attack)
+
+    assert(result.isRight)
+
+    val newState = result.toOption.get
+
+    assert(newState.players(1).hand.isEmpty)
+
+    assert(newState.players(0).tricks == List(WonTrick.Open(List(sixHearts))))
+
+    assert(newState.players(0).hiddenTricks == List(WonTrick.Hidden(List(sevenClubs))))
+
+    assert(newState.attacker == 0)
+
+    assert(newState.round == Round.WaitingAttack)
   }
 
 }
