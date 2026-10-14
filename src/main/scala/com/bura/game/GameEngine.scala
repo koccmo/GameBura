@@ -104,7 +104,6 @@ object GameEngine {
     }
 
   //DECLARATION
-
   def robotDeclaration(state: GameState, robot: Player.Robot): Option[GameResult] =
     if (!BotAi.shouldDeclare31(robot)) { None }
     else {
