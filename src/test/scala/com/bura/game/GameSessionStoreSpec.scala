@@ -120,4 +120,25 @@ class GameSessionStoreSpec extends AnyFunSuite {
     assert(store.get(2002L).contains(session2))
   }
 
+  test("createGame creates and stores new game session") {
+
+    val store = GameSessionStore()
+
+    val result = store.createGame(id = 1001L, humanName = "Roman")
+
+    assert(result.isRight)
+
+    val updatedStore = result.toOption.get
+
+    val session = updatedStore.get(1001L)
+
+    assert(session.isDefined)
+
+    assert(session.get.state.players.exists {
+        case human: Player.Human => human.name == "Roman"
+        case _ => false
+      }
+    )
+  }
+
 }
