@@ -1,9 +1,16 @@
 package com.bura.game
 
-import com.bura.model.{Deck, Player, Suit}
+import com.bura.model.{Attack, Card, Deck, Player, Rank, Suit, WonTrick}
 import org.scalatest.funsuite.AnyFunSuite
 
+
 class GameSessionStoreSpec extends AnyFunSuite {
+
+  private val sixHearts = Card(Rank.Six, Suit.Hearts)
+  private val tenClubs = Card(Rank.Ten, Suit.Clubs)
+  private val aceHearts = Card(Rank.Ace, Suit.Hearts)
+  private val tenSpades = Card(Rank.Ten, Suit.Spades)
+  private val kingClubs = Card(Rank.King, Suit.Clubs)
 
   test("put stores session and get returns it") {
 
@@ -141,4 +148,99 @@ class GameSessionStoreSpec extends AnyFunSuite {
     )
   }
 
+  test("applyAction updates stored session when game continues") {
+
+    val human = Player.Human(name = "Human", hand = List(sixHearts, tenClubs))
+
+    val robot = Player.Robot(name = "Robot", hand = Nil)
+
+    val state =
+      GameState(
+        deck = Deck(Nil),
+        players = Vector(human, robot),
+        attacker = 0,
+        defender = 1,
+        trump = Suit.Hearts
+      )
+
+    val session = GameSession(state)
+
+    val store = GameSessionStore().put(id = 1001L, session = session)
+
+    val attack = Attack(List(sixHearts))
+
+    val result = store.applyAction(id = 1001L, action = PlayerAction.AttackCards(attack))
+
+    assert(result.isRight)
+
+    val (updatedStore, sessionResult) = result.toOption.get
+
+    sessionResult match {
+
+      case SessionResult.Updated(newSession) =>
+
+        assert(newSession.state.attackingPlayer.hand == List(tenClubs))
+        assert(updatedStore.get(1001L).contains(newSession))
+
+      case SessionResult.Finished(_) => fail("Attack should update session, not finish game")
+    }
+  }
+
+  test("applyAction removes session when game is finished") {
+
+    val human =
+      Player.Human(
+        name = "Human",
+        hand = Nil,
+        tricks = List(WonTrick.Open(List(aceHearts , tenClubs, tenSpades)))
+      )
+
+    val robot =
+      Player.Robot(
+        name = "Robot",
+        hand = Nil,
+        tricks = List(WonTrick.Open(List(kingClubs)))
+      )
+
+    val state =
+      GameState(
+        deck = Deck(Nil),
+        players = Vector(human, robot),
+        attacker = 0,
+        defender = 1,
+        trump = Suit.Hearts
+      )
+
+    val session = GameSession(state)
+
+    val store = GameSessionStore().put(id = 1001L, session = session)
+
+    val result = store.applyAction(id = 1001L, action = PlayerAction.Declare31)
+
+    assert(result.isRight)
+
+    val (updatedStore, sessionResult) = result.toOption.get
+
+    sessionResult match {
+
+      case SessionResult.Finished(game) =>
+
+        assert(game.result == GameResult.HumanWon(humanPoints = 31, robotPoints = 4))
+        assert(updatedStore.get(1001L).isEmpty)
+
+      case SessionResult.Updated(_) => fail("Declare31 should finish the game")
+    }
+  }
+
+  test("applyAction returns error when session does not exist") {
+
+    val store = GameSessionStore()
+
+    val attack = Attack(List(sixHearts))
+
+    val result = store.applyAction(id = 1001L, action = PlayerAction.AttackCards(attack))
+
+    assert(result == Left("Game session not found"))
+  }
+  
 }
