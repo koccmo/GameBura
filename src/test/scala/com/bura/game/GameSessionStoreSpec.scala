@@ -242,5 +242,5 @@ class GameSessionStoreSpec extends AnyFunSuite {
 
     assert(result == Left("Game session not found"))
   }
-  
+
 }
