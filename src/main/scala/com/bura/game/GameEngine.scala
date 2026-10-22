@@ -66,6 +66,27 @@ object GameEngine {
 
       case None => playRobotSurrender(state, robot, attack)
     }
+  // ROBOT DEFENSE RESULT
+
+  def playRobotDefenseResult(
+                              state: GameState,
+                              robot: Player.Robot,
+                              attack: Attack
+                            ): Either[String, RobotDefenseResult] =
+    BotAi.chooseDefense(state, robot, attack) match {
+
+      case Some(defense) => applyPlayerAction(state, PlayerAction.DefendCards(defense)) match {
+
+          case Right(ActionResult.StateUpdated(newState)) => Right(
+              RobotDefenseResult.Defended(state = newState, defense = defense))
+
+          case Right(ActionResult.GameFinished(_)) => Left("Unexpected game finish during robot defense")
+          case Left(error) => Left(error)
+        }
+
+      case None => playRobotSurrender(state, robot, attack).map { newState =>
+          RobotDefenseResult.Surrendered(state = newState)}
+    }
 
   // ROBOT Surrender
   def playRobotSurrender(
