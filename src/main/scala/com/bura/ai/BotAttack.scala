@@ -20,9 +20,7 @@ object BotAttack {
     (1 to math.min(3, hand.size))
       .iterator
       .flatMap(hand.combinations)
-      .flatMap{ cards =>
-        Try(Attack(cards)).toOption
-      }
+      .flatMap { cards => Try(Attack(cards)).toOption.filter(_.isValid) }
       .toList
   }
 
@@ -33,7 +31,7 @@ object BotAttack {
     } else {
 
       val twoTrumps = analysis.trumpCards.size == 2
-      val twoSuits = analysis.cards.groupBy(_.suit).values.exists(_.size == 2)
+      val twoSuits = analysis.cards.groupBy(_.suit).values.exists(_.size >= 2)
 
       if (twoTrumps) {
         chooseTwoTrumpAttack(attacks,analysis)
@@ -69,7 +67,7 @@ object BotAttack {
       .cards
       .groupBy(_.suit)
       .values
-      .find(_.size == 2)
+      .find(_.size >= 2)
 
     twoCardSuit match {
       case Some(cards) => findBestAttackContaining(attacks, cards)
@@ -87,7 +85,7 @@ object BotAttack {
     val preferredSet = preferredCards.toSet
 
     attacks
-      .filter({ attacks => attacks.cards.exists(preferredSet.contains)})
+      .filter { attack => preferredSet.subsetOf(attack.cards.toSet)}
       .sortBy { attacks => (attacks.points, attacks.cards.map(_.rank.strength).min) }
       .headOption
       .orElse(chooseSmallestAttack(attacks,

@@ -7,7 +7,7 @@ import com.bot4s.telegram.future.{Polling, TelegramBot}
 import com.bot4s.telegram.methods.SendMessage
 import com.bot4s.telegram.models.{InlineKeyboardButton, InlineKeyboardMarkup, Message}
 import com.bura.game.{GameEngine, GameResult, GameSession, GameSessionStore, GameState, PlayerAction, RobotDefenseResult, Round, SessionResult}
-import com.bura.model.{Attack, Defense, Player}
+import com.bura.model.{Attack, Defense, Player, Suit}
 import sttp.client4.Backend
 import sttp.client4.okhttp.OkHttpFutureBackend
 import com.bot4s.telegram.methods.{AnswerCallbackQuery, SendMessage}
@@ -36,8 +36,7 @@ class BuraTelegramBot(token: String) extends TelegramBot with Polling {
                          session: GameSession
                        ): Future[Unit] = {
 
-    val state =
-      session.state
+    val state = session.state
 
     val human =
       state.players.collectFirst {
@@ -65,14 +64,16 @@ class BuraTelegramBot(token: String) extends TelegramBot with Polling {
           None
       }
 
+    val humanPoints = human.map(_.totalPoints).getOrElse(0)
+
     request(
       SendMessage(
         message.source,
-        s"""Trump: ${state.trump}
-           |Attacker: ${state.attackingPlayer.name}
-           |Defender: ${state.defendingPlayer.name}
-           |Round: ${state.round}
-           |Your cards: $humanCards""".stripMargin,
+        s"""Козырь: ${suitSymbol(state.trump)}
+           |Атакует: ${state.attackingPlayer.name}
+           |Защищается: ${state.defendingPlayer.name}
+           |Твои очки: $humanPoints
+           |Твои карты: $humanCards""".stripMargin,
         replyMarkup = keyboard
       )
     ).void
@@ -219,12 +220,63 @@ class BuraTelegramBot(token: String) extends TelegramBot with Polling {
 
       state.attackingPlayer match {
 
-        case _: Player.Robot =>
-          playRobotAttackTurn(
-            message = message,
+        case robot: Player.Robot =>
+
+          GameEngine.robotDeclaration(
             state = state,
-            chatId = chatId
-          )
+            robot = robot
+          ) match {
+
+            case Some(result) =>
+
+              store =
+                store.remove(chatId)
+
+              val resultText =
+                result match {
+
+                  case GameResult.RobotWon(
+                    humanPoints,
+                    robotPoints
+                  ) =>
+                    s"""🤖 Робот объявил 31 и выиграл!
+                       |Твои очки: $humanPoints
+                       |Очки робота: $robotPoints""".stripMargin
+
+                  case GameResult.HumanWon(
+                    humanPoints,
+                    robotPoints
+                  ) =>
+                    s"""🏆 Робот ошибочно объявил 31.
+                       |Ты выиграл!
+                       |Твои очки: $humanPoints
+                       |Очки робота: $robotPoints""".stripMargin
+
+                  case GameResult.Draw(
+                    humanPoints,
+                    robotPoints
+                  ) =>
+                    s"""🤝 Ничья.
+                       |Твои очки: $humanPoints
+                       |Очки робота: $robotPoints""".stripMargin
+                }
+
+              request(
+                SendMessage(
+                  message.source,
+                  resultText
+                )
+              ).void
+
+
+            case None =>
+
+              playRobotAttackTurn(
+                message = message,
+                state = state,
+                chatId = chatId
+              )
+          }
 
         case _: Player.Human =>
           sendState(
@@ -238,11 +290,46 @@ class BuraTelegramBot(token: String) extends TelegramBot with Polling {
   override def receiveMessage(msg: Message): Future[Unit] =
     msg.text match {
 
-      case Some("/start") => request(SendMessage(msg.source, "Привет! Я бот для игры в Буру.")).void
+      case Some("/start") =>
+        request(
+          SendMessage(
+            msg.source,
+            """Привет! Я бот для игры в Буру.
+              |
+              |Команды:
+              |/newgame — начать новую игру
+              |/state — показать текущее состояние
+              |/help — помощь
+              |
+              |Во время игры используй кнопки под сообщениями.""".stripMargin
+          )
+        ).void
 
+      case Some("/help") =>
+        request(
+          SendMessage(
+            msg.source,
+            """Как играть:
+              |
+              |• Выбери от 1 до 3 карт одной масти и нажми «Атаковать».
+              |• Если атакует робот — выбери карты и нажми «Отбиться».
+              |• Если не хочешь отбиваться — выбери нужное количество карт и нажми «Сдаться».
+              |• Если у тебя 31 или больше очков — можно нажать «Объявить 31».
+              |
+              |Команды:
+              |/newgame — новая игра
+              |/state — текущее состояние
+              |/help — эта справка""".stripMargin
+          )
+        ).void
+        
       case Some("/newgame") =>
-        val chatId =
-          msg.chat.id
+        val chatId = msg.chat.id
+
+        selectedAttackCards = selectedAttackCards - chatId
+
+        selectedDefenseCards = selectedDefenseCards - chatId
+
         store.createGame(id = chatId, humanName = "Human") match {
 
           case Right(updatedStore) =>
@@ -252,25 +339,12 @@ class BuraTelegramBot(token: String) extends TelegramBot with Polling {
           case Left(error) => request(SendMessage(msg.source, s"Ошибка: $error")).void
         }
 
-      case Some("/state") =>
-        val chatId =
-          msg.chat.id
+      case Some("/state") => val chatId =
+        msg.chat.id
 
         store.get(chatId) match {
-
-          case Some(session) =>
-            sendState(
-              message = msg,
-              session = session
-            )
-
-          case None =>
-            request(
-              SendMessage(
-                msg.source,
-                "Игра не найдена. Сначала используй /newgame"
-              )
-            ).void
+          case Some(session) => sendState(message = msg, session = session)
+          case None => request(SendMessage(msg.source, "Игра не найдена. Сначала используй /newgame")).void
         }
 
       case _ => Future.successful(())
@@ -761,6 +835,100 @@ class BuraTelegramBot(token: String) extends TelegramBot with Polling {
               }
           }
         }
+      //Declare 31
+      case (Some(message), Some("declare:31")) =>
+
+        val chatId =
+          message.chat.id
+
+        store.applyAction(
+          id = chatId,
+          action = PlayerAction.Declare31
+        ) match {
+
+          case Right(
+            (
+              updatedStore,
+              SessionResult.Finished(game)
+            )
+          ) =>
+
+            store = updatedStore
+
+            selectedAttackCards =
+              selectedAttackCards - chatId
+
+            val resultText =
+              game.result match {
+
+                case GameResult.HumanWon(
+                  humanPoints,
+                  robotPoints
+                ) =>
+                  s"""🏆 Ты объявил 31 и выиграл!
+                     |Твои очки: $humanPoints
+                     |Очки робота: $robotPoints""".stripMargin
+
+                case GameResult.RobotWon(
+                  humanPoints,
+                  robotPoints
+                ) =>
+                  s"""❌ Ты объявил 31 слишком рано.
+                     |Робот выиграл.
+                     |Твои очки: $humanPoints
+                     |Очки робота: $robotPoints""".stripMargin
+
+                case GameResult.Draw(
+                  humanPoints,
+                  robotPoints
+                ) =>
+                  s"""🤝 Ничья.
+                     |Твои очки: $humanPoints
+                     |Очки робота: $robotPoints""".stripMargin
+              }
+
+            answerCallback
+              .flatMap { _ =>
+                clearKeyboard(message)
+              }
+              .flatMap { _ =>
+                request(
+                  SendMessage(
+                    message.source,
+                    resultText
+                  )
+                ).void
+              }
+
+
+          case Right(
+            (
+              updatedStore,
+              SessionResult.Updated(updatedSession)
+            )
+          ) =>
+
+            store = updatedStore
+
+            answerCallback.flatMap { _ =>
+              sendState(
+                message = message,
+                session = updatedSession
+              )
+            }
+
+
+          case Left(error) =>
+
+            answerCallback.flatMap { _ =>
+              request(
+                SendMessage(
+                  message.source,
+                  s"Ошибка объявления 31: $error"
+                )
+              ).void
+            }
+        }
       // ПОДТВЕРЖДЕНИЕ АТАКИ
       case (Some(message), Some("attack:confirm"))                          =>
         val chatId =
@@ -997,10 +1165,19 @@ class BuraTelegramBot(token: String) extends TelegramBot with Polling {
         callbackData = Some("attack:confirm")
       )
 
+    val declare31Button =
+      InlineKeyboardButton(
+        text = "Объявить 31",
+        callbackData = Some("declare:31")
+      )
+
     InlineKeyboardMarkup(
       Seq(
         buttons,
-        Seq(attackButton)
+        Seq(
+          attackButton,
+          declare31Button
+        )
       )
     )
   }
@@ -1045,6 +1222,14 @@ class BuraTelegramBot(token: String) extends TelegramBot with Polling {
       )
     )
   }
+
+  private def suitSymbol(suit: Suit): String =
+    suit match {
+      case Suit.Clubs    => "♣️"
+      case Suit.Diamonds => "♦️"
+      case Suit.Hearts   => "♥️"
+      case Suit.Spades   => "♠️"
+    }
 
   private def clearKeyboard(
                              message: Message
