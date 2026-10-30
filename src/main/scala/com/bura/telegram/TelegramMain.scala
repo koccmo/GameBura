@@ -15,20 +15,16 @@ object TelegramMain extends App {
       )
     )
 
-  val bot =
-    new BuraTelegramBot(token)
+  val bot = new BuraTelegramBot(token)
 
-  val eol =
-    bot.run()
+  val eol = bot.run()
 
   eol.onComplete {
     case Success(_) =>
       println("Telegram polling stopped normally.")
 
     case Failure(error) =>
-      println(
-        s"Telegram polling failed: ${error.getClass.getName}: ${error.getMessage}"
-      )
+      println(s"Telegram polling failed: ${error.getClass.getName}: ${error.getMessage}")
 
       error.printStackTrace()
   }
@@ -36,8 +32,5 @@ object TelegramMain extends App {
   println("Telegram bot started.")
   println("Press Ctrl+C to stop.")
 
-  Await.result(
-    eol,
-    Duration.Inf
-  )
+  Await.result(eol, Duration.Inf)
 }
