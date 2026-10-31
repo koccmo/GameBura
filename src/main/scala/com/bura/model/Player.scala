@@ -1,6 +1,6 @@
 package com.bura.model
 
-import com.bura.rules.{BuraRules, Rules}
+import com.bura.rules.BuraRules
 sealed trait Player {
 
   def name: String
@@ -39,8 +39,7 @@ sealed trait Player {
   lazy val totalPoints: Int =
     trickPoints +
       hiddenTricks
-        .flatMap(_.reveal)
-        .map(_.points)
+        .map(_.revealPoints)
         .sum
 
   // Helpers

@@ -33,8 +33,7 @@ case class Deck(cards: List[Card]) {
   }
 
   def nonEmpty: Boolean = cards.nonEmpty
-  def isEmpty: Boolean =
-    cards.isEmpty
+  def isEmpty: Boolean = cards.isEmpty
   def size: Int = cards.size
   def topCard: Option[Card] = cards.headOption
   def shuffle: Deck = copy(cards = util.Random.shuffle(cards))

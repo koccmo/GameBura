@@ -2,26 +2,23 @@ package com.bura.ui
 
 import com.bura.game.{GameResult, GameState}
 import com.bura.model.{Attack, Card, Defense, Player}
-import com.bura.ui.{ConsoleUI, DeclareAction, DefenseAction}
+import com.bura.rules.BuraRules
 import scala.io.StdIn.readLine
-import com.bura.ui.DeclareAction
+
 
 object ConsoleUI {
 
   def chooseAttack(state: GameState, hand: List[Card]): Either[String, Attack] = {
     showGameInfo(state)
-    chooseCards(hand, minAmount = 1, maxAmount = 3).map(Attack(_))
+    println(s"${state.attackingPlayer.name} attacks:")
+    chooseCards(hand, minAmount = 1, maxAmount = BuraRules.MaxAttackCards).map(Attack(_))
   }
 
-  def chooseDefense(state: GameState, hand: List[Card], amount: Int): Either[String, Defense] = {
-    showGameInfo(state)
-    chooseCards(hand, minAmount = amount, maxAmount = amount).map(Defense(_))
-  }
+  def chooseDefense(hand: List[Card], amount: Int): Either[String, Defense] =
+    chooseCards(hand = hand, minAmount = amount, maxAmount = amount, showHandBefore = false).map(Defense(_))
 
-  def chooseSurrender(state: GameState, hand: List[Card], amount: Int): Either[String, Defense] = {
-    showGameInfo(state)
-    chooseCards(hand, minAmount = amount, maxAmount = amount).map(Defense(_))
-  }
+  def chooseSurrender(hand: List[Card], amount: Int): Either[String, Defense] =
+    chooseCards(hand = hand, minAmount = amount, maxAmount = amount, showHandBefore = false).map(Defense(_))
 
   def chooseDefenseAction(state: GameState, attack: Attack, hand: List[Card]): Either[String, DefenseAction] = {
     println(s"Trump: ${state.trump}")
@@ -82,9 +79,9 @@ object ConsoleUI {
   def chooseDeclareAction(player: Player): Either[String, DeclareAction] = {
 
     println(s"Visible points: ${ player.trickPoints }")
-    println(s"Hidden cards: ${ player.hiddenTricks.flatMap(_.reveal).size }")
+    println(s"Hidden cards: ${ player.hiddenTricks.map(_.count).sum }")
     println("1 - Continue")
-    println("2 - Declare 31")
+    println(s"2 - Declare ${BuraRules.WinningPoints}")
     print("Choose action: ")
 
     readLine().trim match {
@@ -129,22 +126,28 @@ object ConsoleUI {
     }
   }
 
-  private def chooseCards(hand: List[Card], minAmount: Int, maxAmount: Int): Either[String, List[Card]] = {
+  private def chooseCards(
+                           hand: List[Card],
+                           minAmount: Int,
+                           maxAmount: Int,
+                           showHandBefore: Boolean = true
+                         ): Either[String, List[Card]] = {
 
-    showHand(hand)
+    if (showHandBefore) { showHand(hand) }
 
     val message =
-      if (minAmount == maxAmount)
-        s"Choose $minAmount card(s): "
-      else
-        s"Choose $minAmount-$maxAmount card(s): "
+      if (minAmount == maxAmount) s"Choose $minAmount card(s): "
+      else s"Choose $minAmount-$maxAmount card(s): "
 
     print(message)
 
-    parseCardIndexes(input = readLine(), hand = hand, minAmount = minAmount, maxAmount = maxAmount)
+    parseCardIndexes(
+      input = readLine(),
+      hand = hand,
+      minAmount = minAmount,
+      maxAmount = maxAmount
+    )
   }
-
-
 
   private def parseCardIndexes(
                                 input: String,

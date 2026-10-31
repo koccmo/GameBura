@@ -21,4 +21,7 @@ object GameFactory {
       case None => Left("Cannot create game: deck is empty")
     }
   }
+
+  def createSession(humanName: String = "Human", robotName: String = "Robot"): Either[String, GameSession] =
+    create(humanName = humanName, robotName = robotName).map(GameSession.apply)
 }

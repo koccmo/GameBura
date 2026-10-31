@@ -1,8 +1,8 @@
 package com.bura.ai
 
 import com.bura.game.GameState
-import com.bura.model.{Attack, Card, Defense, Player, Suit}
-import com.bura.rules.Rules
+import com.bura.model.{Attack, Defense, Player}
+import com.bura.rules.BuraRules
 
 object BotAi {
   def chooseAttack(state: GameState, robot: Player.Robot): Option[Attack] = {
@@ -19,11 +19,11 @@ object BotAi {
   def shouldDeclare31(robot: Player.Robot): Boolean = {
 
     val visiblePoints = robot.trickPoints
-    val hiddenCardsAmount = robot.hiddenTricks.flatMap(_.reveal).size
+    val hiddenCardsAmount = robot.hiddenTricks.map(_.count).sum
 
-    if (visiblePoints >= 31) true
-    else if (visiblePoints >= 25 && hiddenCardsAmount >= 1) true
-    else if (visiblePoints >= 20 && hiddenCardsAmount >= 2) true
+    if (visiblePoints >= BuraRules.WinningPoints) true
+    else if (visiblePoints >= 25 && hiddenCardsAmount >= 6) true
+    else if (visiblePoints >= 20 && hiddenCardsAmount >= 8) true
     else false
   }
 }

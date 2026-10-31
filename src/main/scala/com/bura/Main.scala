@@ -1,7 +1,7 @@
 package com.bura
 
 import com.bura.game.{GameEngine, GameFactory}
-import com.bura.ui.ConsoleUI
+import com.bura.ui.{ConsoleGameRunner, ConsoleUI}
 
 object Main {
 
@@ -10,7 +10,7 @@ object Main {
     GameFactory.create() match {
 
       case Left(error) => println(s"Cannot start game: $error")
-      case Right(initialState) => GameEngine.play(initialState) match {
+      case Right(initialState) => ConsoleGameRunner.play(initialState) match {
           case Left(error) => println(s"Game error: $error")
           case Right(finishedGame) => ConsoleUI.showGameResult(finishedGame.result)
         }
